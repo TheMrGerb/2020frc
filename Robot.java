@@ -99,7 +99,7 @@ CameraServer server;
 
     //config PIDs
     mainShooter.config_kF(0, 0.02764865, 10);
-    mainShooter.config_kP(0, 1.558857142857, 10);
+    mainShooter.config_kP(0, 1.0, 10);
     mainShooter.config_kI(0, 0, 10);
     mainShooter.config_kD(0, 0, 10);
 
@@ -108,7 +108,7 @@ CameraServer server;
     topShooter.config_kI(0, 0, 10);
     topShooter.config_kD(0, 0, 10);
 
-    turretControl.config_kF(0, 1.27875, 10);
+    turretControl.config_kF(0, .5, 10);
     turretControl.config_kP(0, 0, 10);
     turretControl.config_kI(0, 0, 10);
     turretControl.config_kD(0, 0, 10);
@@ -129,7 +129,7 @@ CameraServer server;
     mainShooter.setSelectedSensorPosition(0, 0, 10);
     topShooter.setSelectedSensorPosition(0, 0, 10);
     turretControl.setSelectedSensorPosition(0, 0, 10);
-
+    turretControl.setSensorPhase(true);
 
     //set configs
     turretControl.configMotionAcceleration(800, 10);
@@ -190,55 +190,40 @@ CameraServer server;
 
     robotDrive.arcadeDrive(driverJoystick.getY(), driverJoystick.getX()* -1);
 
-    double shooterSpeed = 0; ////
-    mainShooter.set(ControlMode.PercentOutput, shooterSpeed);
-    topShooter.set(ControlMode.PercentOutput, shooterSpeed);
-
+      double shooterSpeed = 0;
+      mainShooter.set(ControlMode.PercentOutput, shooterSpeed);
     if (manipJoystick.getRawButton(7)==true){
+      shooterSpeed = 20300;
       mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
-      shooterSpeed = 20150;
     } 
     if (manipJoystick.getRawButton(9)==true){
-      mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
       shooterSpeed = 23000;
+      mainShooter.set(ControlMode.Velocity, shooterSpeed);
     } 
     if (manipJoystick.getRawButton(11)==true){
-      mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
       shooterSpeed = 25500;
-    }
-
-    mainShooter.set(ControlMode.PercentOutput, shooterSpeed);
-
-    if (manipJoystick.getRawButton(7)==true){
       mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      shooterSpeed = 20150;
-    } 
-    if (manipJoystick.getRawButton(9)==true){
-      mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      shooterSpeed = 23000;
-    } 
-    if (manipJoystick.getRawButton(11)==true){
-      mainShooter.set(ControlMode.Velocity, shooterSpeed);
-      shooterSpeed = 25500;
     }
       
-    mainShooter.set(ControlMode.PercentOutput, shooterSpeed);
     topShooter.set(ControlMode.PercentOutput, shooterSpeed);
-
     if (manipJoystick.getRawButton(7)==true){
       topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
-      shooterSpeed = 20150;
     } 
     if (manipJoystick.getRawButton(9)==true){
       topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
-      shooterSpeed = 23000;
     } 
     if (manipJoystick.getRawButton(11)==true){
       topShooter.set(ControlMode.Velocity, shooterSpeed * -1);
-      shooterSpeed = 25500;
+    }
+
+    final double kError2Deg = 4096 / 360;
+    final double tv = NetworkTableInstance.getDefault().getTable("limelight").getEntry("tv").getDouble(0);
+    final double trackConstant = x * kError2Deg;
+    double currentPosition = turretControl.getSelectedSensorPosition();
+
+    if (tv < 1.0) {
+  turretControl.set(ControlMode.MotionMagic, currentPosition);
+      return;
     }
 
       double turretPosition = 0; ////
@@ -252,15 +237,29 @@ CameraServer server;
         turretControl.set(ControlMode.MotionMagic, turretPosition);
       } 
       if (manipJoystick.getRawButton(7)==true){
-        limelightTracking();
+        if (x < 0){
+          turretPosition = currentPosition + trackConstant);
+          turretControl.set(ControlMode.MotionMagic, turretPosition);
+        }if (x > 0){
+          turretPosition = currentPosition - trackConstant);
+          turretControl.set(ControlMode.MotionMagic, turretPosition);
+        }
         ledMode.setNumber(0);
       } 
       if (manipJoystick.getRawButton(9)==true){
-        limelightTracking();
+        if (x < 0){
+          turretControl.set(ControlMode.MotionMagic, currentPosition + trackConstant);
+        }if (x > 0){
+          turretControl.set(ControlMode.MotionMagic, currentPosition - trackConstant);
+        }
         ledMode.setNumber(0);
       } 
       if (manipJoystick.getRawButton(11)==true){
-        limelightTracking();
+          if (x < 0){
+        turretControl.set(ControlMode.MotionMagic, currentPosition + trackConstant);
+      }   if (x > 0){
+        turretControl.set(ControlMode.MotionMagic, currentPosition - trackConstant);
+      }
         ledMode.setNumber(0);
 
       }
@@ -317,21 +316,6 @@ CameraServer server;
   public void testPeriodic() {
   }
   
-  public void limelightTracking() {
-    final double kError2Deg = 4096 / 360;
-    final double tv = NetworkTableInstance.getDefault().getTable("limelight").getEntry("tv").getDouble(0);
-    final double tx = NetworkTableInstance.getDefault().getTable("limelight").getEntry("tx").getDouble(0);
-    final double trackConstant = tx * kError2Deg;
-    double currentPosition = turretControl.getSelectedSensorPosition();
 
-    if (tv < 1.0) {
-  turretControl.set(ControlMode.MotionMagic, currentPosition);
-      return;
-    }
-      if (tx < 0){
-        turretControl.set(ControlMode.MotionMagic, currentPosition + trackConstant);
-      }else if (tx > 0){
-        turretControl.set(ControlMode.MotionMagic, currentPosition - trackConstant);
       }
-      }
-    }
+    
